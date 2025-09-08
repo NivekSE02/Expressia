@@ -37,3 +37,41 @@
 .text-pop-up-top {
 	animation: text-pop-up-top 0.5s cubic-bezier(0.250, 0.460, 0.450, 0.940) both;
 }
+
+
+.slide-right-in {
+  animation: slide-right-in 0.3s forwards;
+}
+
+.slide-right-out {
+  animation: slide-right-out 0.3s forwards;
+}
+
+@keyframes slide-right-in {
+  0% {
+    transform: translateX(-10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-right-out {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(10px);
+    opacity: 0;
+  }
+}
+
+
+@keyframes tracking-out-expand-fwd{0%{transform:translateZ(0);opacity:1}60%{opacity:.8}100%{letter-spacing:1em;transform:translateZ(300px);opacity:0}}
+.tracking-out-expand-fwd {
+	-webkit-animation: tracking-out-expand-fwd 0.4s cubic-bezier(0.550, 0.085, 0.680, 0.530) reverse both;
+	        animation: tracking-out-expand-fwd 0.4s cubic-bezier(0.550, 0.085, 0.680, 0.530) reverse both;
+}
