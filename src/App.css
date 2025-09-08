@@ -36,3 +36,15 @@
     transform: rotate(360deg);
   }
 }
+@font-face {
+  font-family: "SanaSans";
+  src: url("./fonts/SanaSans-Variable.woff2") format("woff2");
+  font-weight: 100 900; /* si la fuente es variable */
+  font-style: normal;
+  font-display: swap; /* carga rápida */
+}
+
+/* Aplica la fuente a todo el proyecto */
+body {
+  font-family: "SanaSans", sans-serif;
+}
