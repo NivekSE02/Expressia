@@ -70,8 +70,8 @@ export default function Header() {
   }}
 >
   <span className="left-arrow" style={styles.sideArrow}>{">"}</span>
-  Iniciar sesión
-  <span className="right-arrow" style={styles.sideArrow}>{"  >"}</span>
+  Iniciar sesión  
+  <span className="right-arrow" style={styles.sideArrow}>{">"}</span>
 </button>
 
   
@@ -91,7 +91,6 @@ const styles = {
   header: {
     justifyContent: "space-between", 
     display: "flex",
-    justifyContent: "space-between",
     alignItems: "center",
     padding: "10px 50px",
     backgroundColor: "#000000ff",
