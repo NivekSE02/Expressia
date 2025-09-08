@@ -39,7 +39,7 @@ export default function Home() {
   }
 
   return (
-    <div style={{ fontFamily: 'SanaSans-Variable', background: '#000', minHeight: '100vh', color: '#dfd5d5ff' }}>
+    <div style={{ fontFamily: 'SanaSans-Variable', background: '#ffffffff', minHeight: '100vh', color: '#000000ff' }}>
   <Header />
 
   {/* Sección del título y párrafo */}
@@ -52,7 +52,7 @@ export default function Home() {
     marginRight: '50px',
   }}>
     <h1 className="tracking-in-expand" style={{ 
-  color: '#dddfe1ff',
+  color: '#17191aff',
   fontWeight: 700,
   fontSize: '5rem',
   paddingLeft: '50px',
@@ -60,7 +60,7 @@ export default function Home() {
   Expressia
 </h1>
     <p style={{
-      color: '#aaa',
+      color: '#4d4646ff',
       fontSize: '1.1rem',
       maxWidth: '500px',
       margin: 0,
@@ -95,8 +95,8 @@ export default function Home() {
 
 </div>
 
-    <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#e5e5e5ff' }}>{item.title}</h3>
-    <p style={{ fontSize: '0.95rem', lineHeight: 1.4, color: '#aaa' }}>{item.desc}</p>
+    <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#131212ff' }}>{item.title}</h3>
+    <p style={{ fontSize: '0.95rem', lineHeight: 1.4, color: '#4b4949ff' }}>{item.desc}</p>
   </div>
 ))}
         </div>

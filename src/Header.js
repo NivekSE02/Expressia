@@ -5,9 +5,78 @@ export default function Header() {
   return (
     <header style={styles.header}>
   
-      <img src={logo} style={styles.logoImage} alt="Logo" />
-      <button style={styles.button}>Iniciar sesión</button>
-    </header>
+  <div style={styles.centerMenu}>
+   <button
+  style={styles.butto}
+  onMouseEnter={(e) => {
+    const arrow = e.currentTarget.firstChild;
+    arrow.classList.remove("slide-right-out");
+    arrow.classList.add("slide-right-in");
+  }}
+  onMouseLeave={(e) => {
+    const arrow = e.currentTarget.firstChild;
+    arrow.classList.remove("slide-right-in");
+    arrow.classList.add("slide-right-out");
+  }}
+>
+  <span style={styles.arrow}>{">"}</span>Contacto
+</button>
+
+    <img src={logo} style={styles.logoImage} alt="Logo" />
+
+
+     <button
+  style={styles.butto}
+  onMouseEnter={(e) => {
+    const arrow = e.currentTarget.firstChild;
+    arrow.classList.remove("slide-right-out");
+    arrow.classList.add("slide-right-in");
+  }}
+  onMouseLeave={(e) => {
+    const arrow = e.currentTarget.firstChild;
+    arrow.classList.remove("slide-right-in");
+    arrow.classList.add("slide-right-out");
+  }}
+>
+  <span style={styles.arrow}>{">"}</span>Nosotros
+</button>
+  </div>
+<button
+  style={styles.button}
+  onMouseEnter={(e) => {
+    const leftArrow = e.currentTarget.querySelector(".left-arrow");
+    const rightArrow = e.currentTarget.querySelector(".right-arrow");
+
+    // Mostrar > izquierdo
+    leftArrow.style.display = "inline-block";
+    leftArrow.classList.remove("slide-right-out");
+    leftArrow.classList.add("slide-right-in");
+
+    // Ocultar > derecho
+    rightArrow.classList.remove("slide-right-in");
+    rightArrow.classList.add("slide-right-out");
+  }}
+  onMouseLeave={(e) => {
+    const leftArrow = e.currentTarget.querySelector(".left-arrow");
+    const rightArrow = e.currentTarget.querySelector(".right-arrow");
+
+    // Ocultar > izquierdo
+    leftArrow.classList.remove("slide-right-in");
+    leftArrow.classList.add("slide-right-out");
+
+    // Mostrar > derecho
+    rightArrow.classList.remove("slide-right-out");
+    rightArrow.classList.add("slide-right-in");
+  }}
+>
+  <span className="left-arrow" style={styles.sideArrow}>{">"}</span>
+  Iniciar sesión
+  <span className="right-arrow" style={styles.sideArrow}>{"  >"}</span>
+</button>
+
+  
+</header>
+
   );
 }
 
@@ -20,6 +89,7 @@ const styles = {
 
   },
   header: {
+    justifyContent: "space-between", 
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
@@ -33,10 +103,28 @@ const styles = {
     top: 0,   
     boxSizing: "border-box", // <- para que quede encima del resto del contenido
   },
-  
+
+  butto: {
+    backgroundColor: "transparent",
+    color: "white",
+    border: "none",
+    cursor: "pointer",
+    fontFamily: "SanaSans",
+    fontWeight: 600,
+    fontSize: 16,
+    borderRadius: 0,
+    padding: 15, // opcional, para que no se note espacio extra
+    gap: "15px", // espacio entre ">" y texto
+  },
+  arrow: {
+  display: "inline-block", // necesario para transform
+  opacity: 0,              // inicialmente invisible
+  transition: "all 0.3s ease",
+  width: "10px",           // evita que empuje texto al aparecer
+},
   button: {
     height  : 40,
-    width: 120,
+    width: 140,
     backgroundColor: "#d7204eff",
     color: "Black",
     border: "none",
@@ -46,4 +134,10 @@ const styles = {
     fontSize: 16,  
     borderRadius: 9999999,
   },
+  centerMenu: {
+  display: "flex",
+  alignItems: "center",
+  gap: "20px",
+  margin: "0 auto", // centra todo el contenido del medio
+}
 };
