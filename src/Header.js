@@ -41,7 +41,6 @@ const styles = {
     color: "Black",
     border: "none",
     fontFamily: "SanaSans",
-    borderRadius: "2px",
     cursor: "pointer",
     fontWeight: 600,         
     fontSize: 16,  
