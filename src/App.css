@@ -12,6 +12,12 @@
     animation: App-logo-spin infinite 20s linear;
   }
 }
+html {
+  overflow-y: scroll; /* Fuerza la reserva del espacio para la barra */
+}
+html {
+  font-display: swap; /* Si usas @font-face */
+}
 
 .App-header {
   background-color: #282c34;
@@ -35,14 +41,18 @@
   to {
     transform: rotate(360deg);
   }
+
+  html {
+  scrollbar-gutter: stable;
+}
+
 }
 @font-face {
-  font-family: "SanaSans";
-  src: url("./fonts/SanaSans-Variable.woff2") format("woff2");
-  font-weight: 100 900; /* si la fuente es variable */
-  font-style: normal;
-  font-display: swap; /* carga rápida */
+  font-family: 'SanaSans';
+  src: url('./fonts/SanaSans-Variable.woff2') format('woff2');
+  font-display: swap;
 }
+
 
 /* Aplica la fuente a todo el proyecto */
 body {

@@ -10,14 +10,12 @@ const Login = () => {
                 margin: '40px auto',
                 padding: '32px',
                 paddingTop: '120px',
-                
-                
                 background: '#fff'
             }}>
-                <h1 className="tracking-out-expand-fwd" style={{ textAlign: 'center', marginBottom: '24px' }}>Iniciar Sesión</h1>
+                <h1 className="slide-in-bottom" style={{ textAlign: 'center', marginBottom: '24px', fontSize: '7.5rem' }}>Iniciar Sesión</h1>
                 <form>
                     <div style={{ marginBottom: '16px' }}>
-                        <label htmlFor="email" style={{ display: 'block', marginBottom: '8px' }}>Correo electrónico</label>
+                        <label htmlFor="email" style={{ display: 'block', marginBottom: '8px', fontSize: '1.1rem' }}>Correo electrónico</label>
                         <input
                             type="email"
                             id="email"
@@ -32,7 +30,7 @@ const Login = () => {
                         />
                     </div>
                     <div style={{ marginBottom: '24px' }}>
-                        <label htmlFor="password" style={{ display: 'block', marginBottom: '8px' }}>Contraseña</label>
+                        <label htmlFor="password" style={{ display: 'block', marginBottom: '8px', fontSize: '1.1rem' }}>Contraseña</label>
                         <input
                             type="password"
                             id="password"
@@ -56,7 +54,8 @@ const Login = () => {
                             border: 'none',
                             borderRadius: '4px',
                             fontWeight: 'bold',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            fontSize: '1.1rem'
                         }}
                     >
                         Iniciar sesión
@@ -70,7 +69,7 @@ const Login = () => {
                             color: '#1976d2',
                             textDecoration: 'underline',
                             cursor: 'pointer',
-                            fontSize: '16px'
+                            fontSize: '1.1rem'
                         }}
                     >
                         Registrarse

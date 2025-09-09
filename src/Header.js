@@ -3,8 +3,24 @@ import "./animation.css";
 import logo from "./Img/expressia.png";
 
 export default function Header() {
+
+  // Redirige a una ruta usando window.location o history.push si usas react-router
+function handleRedirect(path) {
+  const content = document.getElementById("page-content");
+  if (content) {
+    content.classList.add("fade-out");
+    setTimeout(() => {
+      window.location.href = path;
+    }, 1200); // mismo tiempo que la animación
+  } else {
+    window.location.href = path; // fallback
+  }
+}
+
   return (
     <header style={styles.header}>
+      <link rel="preload" href="./fonts/SanaSans-Variable.woff2" as="font" type="font/woff2" crossorigin />
+
       <div style={styles.centerMenu}>
       
         <button
@@ -23,7 +39,7 @@ export default function Header() {
           <span style={styles.arrow}>{">"}</span>Contacto
         </button>
 
-        <img src={logo} style={styles.logoImage} alt="Logo" onClick={() => window.location.href = "/" }/>
+        <img src={logo} style={styles.logoImage} alt="Logo" onClick={() => handleRedirect("/")} />
 
      
         <button
@@ -37,18 +53,27 @@ export default function Header() {
             const arrow = e.currentTarget.firstChild;
             arrow.classList.remove("slide-right-in");
             arrow.classList.add("slide-right-out");
+            }}
+          >
+            <span style={styles.arrow}>{">"}</span>Nosotros
+          </button>
+          </div>
+
+          <button
+          style={styles.button}
+          onClick={() => {
+            const url = "/login";
+            const content = document.getElementById("page-content");
+            if (content) {
+            content.classList.add("fade-out");
+            setTimeout(() => {
+              window.location.href = url;
+            }, 1200); // duración igual a la animación
+            } else {
+            window.location.href = url; // fallback
+            }
           }}
-        >
-          <span style={styles.arrow}>{">"}</span>Nosotros
-        </button>
-      </div>
-
-      
-      <button
-
-        onClick={() => window.location.href = "/login" }
-        style={styles.button}
-        onMouseEnter={(e) => {
+          onMouseEnter={(e) => {
           const leftArrow = e.currentTarget.querySelector(".left-arrow");
           const rightArrow = e.currentTarget.querySelector(".right-arrow");
 
@@ -87,11 +112,11 @@ const styles = {
   },
 
   logoImage: {
-    width: 190,
-    height: 75,
-    objectFit: "cover",
-    cursor: "pointer",
-  },
+  width: "190px",
+  height: "75px",
+  objectFit: "cover",
+  cursor: "pointer",
+},
   header: {
     justifyContent: "space-between",
     display: "flex",
