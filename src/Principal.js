@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import Header from "./Header";
 import parcelIcon from "./Img/wondicon-ui-free-parcel_111208.png";
 import HistorialIcon from "./Img/folder.png";
