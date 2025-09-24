@@ -1,99 +1,218 @@
-import React from "react";
-import Header from "./Header";
-import parcelIcon from "./Img/wondicon-ui-free-parcel_111208.png";
-import HistorialIcon from "./Img/folder.png";
-import CalendarioIcon from "./Img/calendario.png";
-import CentroICon from "./Img/centro.png";
-import CamionIcon from "./Img/Camion.png";
-import CandadoIcon from "./Img/Candado.png";
-import Rayoicon from "./Img/rayo.png";
-import MaletIcon from "./Img/maletin.png";
-import EstadIcon from "./Img/Grafica.png";
-import './animation.css';
-
-const securityItems = [
-  { icon: parcelIcon, isImage: true, title: "Envía tus paquetes", desc: "Envía cualquier paquete de manera rápida y segura a toda Centroamérica." },
-  { icon: HistorialIcon, isImage: true, title: "Historial completo", desc: "Consulta fácilmente el estado de todos tus envíos en un solo lugar." },
-  { icon: CalendarioIcon, isImage: true, title: "Programa tus envíos", desc: "Agenda tus entregas para que lleguen cuando lo necesites." },
-  { icon: CamionIcon, isImage: true, title: "Seguimiento en tiempo real", desc: "Sigue tus pedidos en cada paso hasta que lleguen a su destino." },
-  { icon: CandadoIcon, isImage: true, title: "Seguridad garantizada", desc: "Tus paquetes están protegidos con los más altos estándares de seguridad." },
-  { icon: Rayoicon, isImage: true, title: "Rápido y confiable", desc: "Procesos automatizados para que tu envío llegue sin retrasos." },
-  { icon: CentroICon, isImage: true, title: "Cobertura regional", desc: "Envíos a toda Centroamérica con la misma facilidad y rapidez." },
-  { icon: MaletIcon, isImage: true, title: "Para empresas y emprendedores", desc: "Optimiza la logística de tu negocio con nuestra plataforma." },
-  { icon: EstadIcon, isImage: true, title: "Reportes claros", desc: "Visualiza estadísticas y métricas de tus envíos para tomar mejores decisiones." },
-];
+import React, { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import Header from "./Header"; // 👈 seguimos usando tu Header con flechitas
+import { FaTruck, FaMapMarkerAlt, FaGlobe, FaUser } from "react-icons/fa"; // 👈 librería de íconos ligera
 
 export default function Home() {
-  const rows = [];
-  const itemsPerRow = 3;
-
-  for (let i = 0; i < securityItems.length; i += itemsPerRow) {
-    rows.push(securityItems.slice(i, i + itemsPerRow));
-  }
+  const navigate = useNavigate();
+  const [show, setShow] = useState(false);
+  useEffect(() => setShow(true), []);
 
   return (
-    <div style={{ fontFamily: 'SanaSans-Variable', background: '#ffffffff', minHeight: '100vh', color: '#000000ff' }}>
+    <AnimatePresence mode="wait">
+      {show && (
+        <motion.div
+          key="principal"
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -24 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          style={styles.container}
+        >
       <Header />
 
-      <div id="page-content"> 
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginTop: '100px',
-          marginLeft: '50px',
-          marginRight: '50px',
-        }}>
-          <h1 className="tracking-in-expand" style={{
-            color: '#17191aff',
-            fontWeight: 700,
-            fontSize: '5rem',
-            paddingLeft: '50px',
-          }}>
-            Expressia
-          </h1>
-          <p style={{
-            color: '#4d4646ff',
-            fontSize: '1.1rem',
-            maxWidth: '500px',
-            margin: 0,
-            paddingRight: '180px',
-          }}>
-            Envía y recibe paquetes de forma rápida, segura y confiable en toda Centroamérica. Optimiza tus envíos, haz seguimiento en tiempo real y simplifica la logística de tu negocio.
-          </p>
-        </div>
+      {/* Hero */}
+      <motion.section style={styles.hero}
+        initial="hidden" animate="visible"
+        variants={sectionVariants}>
+        <motion.div style={styles.heroInner} variants={fadeStagger}>
+          <motion.h2 style={styles.heroTitle} variants={fadeItem}>
+            Envía y rastrea tus paquetes por toda
+            <span style={styles.highlight}> Centroamérica</span>
+          </motion.h2>
+          <motion.p style={styles.heroSubtitle} variants={fadeItem}>
+            Sistema integral de gestión logística para envíos rápidos, seguros y
+            confiables en toda la región centroamericana.
+          </motion.p>
 
-       
-        <main style={{ maxWidth: 1200, margin: '40px auto', padding: '32px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {rows.map((row, rowIndex) => (
-              <div
-                key={rowIndex}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  borderBottom: rowIndex < rows.length - 1 ? '1px solid #2e2d2dff' : 'none',
-                  padding: '1rem 0',
-                }}
-              >
-                {row.map((item, index) => (
-                  <div key={index} style={{ flex: 1, textAlign: 'center' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '0.5rem' }}>
-                      {item.isImage ? (
-                        <img src={item.icon} alt={item.title} style={{ width: 48, height: 48 }} />
-                      ) : (
-                        item.icon
-                      )}
-                    </div>
-                    <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#131212ff' }}>{item.title}</h3>
-                    <p style={{ fontSize: '0.95rem', lineHeight: 1.4, color: '#4b4949ff' }}>{item.desc}</p>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </main>
-      </div>
-    </div>
+          {/* Call to action box */}
+          <motion.div style={styles.accessBox} variants={popCard} whileHover={{ scale: 1.02 }}>
+            <div style={styles.accessIcon}>
+              <FaUser size={28} color="#fff" />
+            </div>
+            <h3 style={styles.accessText}>Accede al Sistema</h3>
+            <p style={styles.accessDesc}>
+              Inicia sesión para gestionar tus envíos
+            </p>
+            <button style={styles.accessBtn} onClick={() => navigate("/login")}>
+              Iniciar Sesión
+            </button>
+          </motion.div>
+        </motion.div>
+      </motion.section>
+
+      {/* Features */}
+      <motion.section style={styles.features} initial="hidden" animate="visible" variants={sectionVariants}>
+        <motion.h3 style={styles.featuresTitle} variants={fadeItem}>¿Por qué elegir Expressia?</motion.h3>
+        <motion.div style={styles.featuresGrid} variants={fadeStagger}>
+          <Feature
+            icon={<FaTruck size={28} color="#fff" />}
+            bg="#f97316"
+            title="Entregas Rápidas"
+            desc="Red logística optimizada para entregas en 24-48 horas"
+          />
+          <Feature
+            icon={<FaMapMarkerAlt size={28} color="#fff" />}
+            bg="#0f172a"
+            title="Seguimiento en Tiempo Real"
+            desc="Rastrea tu paquete desde el origen hasta el destino"
+          />
+          <Feature
+            icon={<FaGlobe size={28} color="#fff" />}
+            bg="#f97316"
+            title="Cobertura Regional"
+            desc="Servicio en todos los países de Centroamérica"
+          />
+        </motion.div>
+      </motion.section>
+
+      {/* Footer */}
+      <motion.footer style={styles.footer} initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.1 }}>
+        <p>© 2025 Expressia. Conectando Centroamérica con confianza.</p>
+      </motion.footer>
+    </motion.div> )}
+    </AnimatePresence>
   );
 }
+
+function Feature({ icon, title, desc, bg }) {
+  return (
+    <motion.div style={styles.featureCard} variants={popCard} whileHover={{ y: -4, boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}>
+      <motion.div style={{ ...styles.featureIcon, background: bg }} variants={fadeItem}>{icon}</motion.div>
+      <motion.h4 style={styles.featureTitle} variants={fadeItem}>{title}</motion.h4>
+      <motion.p style={styles.featureDesc} variants={fadeItem}>{desc}</motion.p>
+    </motion.div>
+  );
+}
+
+// Animation variants
+const sectionVariants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: 'easeOut' } }
+};
+const fadeStagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } }
+};
+const fadeItem = {
+  hidden: { opacity: 0, y: 18 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } }
+};
+const popCard = {
+  hidden: { opacity: 0, scale: 0.9, y: 20 },
+  visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.5, ease: 'anticipate' } }
+};
+
+const styles = {
+  container: {
+    fontFamily: "Arial, sans-serif",
+    background: "linear-gradient(to bottom right, #f9fafb, #e8f0fb)",
+    color: "#111",
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+  },
+  hero: {
+    textAlign: "center",
+    padding: "80px 20px",
+  },
+  heroInner: { maxWidth: 800, margin: "0 auto" },
+  heroTitle: {
+    fontSize: 42,
+    fontWeight: "bold",
+    marginBottom: 16,
+    color: "#1C1C1C",
+  },
+  highlight: { color: "#f97316" },
+  heroSubtitle: {
+    color: "#374151",
+    fontSize: 18,
+    lineHeight: 1.5,
+    maxWidth: 600,
+    margin: "0 auto 40px",
+  },
+  accessBox: {
+    background: "#fff",
+    boxShadow: "0 6px 16px rgba(0,0,0,0.08)",
+    borderRadius: 12,
+    padding: 32,
+    maxWidth: 380,
+    margin: "0 auto",
+    transition: "transform 0.3s ease, box-shadow 0.3s ease",
+  },
+  accessIcon: {
+    background: "#f97316",
+    borderRadius: "50%",
+    width: 64,
+    height: 64,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "0 auto 16px",
+  },
+  accessText: { fontSize: 22, fontWeight: "bold", marginBottom: 8 },
+  accessDesc: { fontSize: 15, color: "#6b7280", marginBottom: 20 },
+  accessBtn: {
+    background: "#0f172a",
+    color: "#fff",
+    border: "none",
+    padding: "12px 20px",
+    borderRadius: 8,
+    cursor: "pointer",
+    fontSize: 16,
+    fontWeight: "bold",
+    width: "100%",
+    transition: "background 0.3s ease",
+  },
+  features: { background: "#fff", padding: "80px 20px", textAlign: "center" },
+  featuresTitle: {
+    fontSize: 30,
+    fontWeight: "bold",
+    marginBottom: 40,
+    color: "#1C1C1C",
+  },
+  featuresGrid: {
+    display: "flex",
+    justifyContent: "center",
+    gap: 40,
+    flexWrap: "wrap",
+  },
+  featureCard: {
+    maxWidth: 280,
+    padding: 20,
+    borderRadius: 12,
+    textAlign: "center",
+    transition: "transform 0.3s ease, box-shadow 0.3s ease",
+    background: "#fafafa",
+  },
+  featureIcon: {
+    borderRadius: "50%",
+    width: 64,
+    height: 64,
+    margin: "0 auto 16px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  featureTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 10 },
+  featureDesc: { fontSize: 15, color: "#374151" },
+  footer: {
+    marginTop: "auto",
+    background: "#1C1C1C",
+    color: "#fff",
+    textAlign: "center",
+    padding: 24,
+    fontSize: 14,
+  },
+};

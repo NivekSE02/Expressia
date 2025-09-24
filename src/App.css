@@ -53,6 +53,9 @@ html {
   font-display: swap;
 }
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Aplica la fuente a todo el proyecto */
 body {
