@@ -185,6 +185,22 @@ function OrderForm({ onCreate }) {
       push('Completa los campos obligatorios marcados con *', { type: 'warning' });
       return;
     }
+    const weightNum = parseFloat(formData.weight);
+    if (isNaN(weightNum) || weightNum <= 0) {
+      push('El peso debe ser un número mayor que cero.', { type: 'error' });
+      return;
+    }
+    // Validar dimensiones si el usuario ingresó valores
+    const dims = ['length','width','height'];
+    for (const d of dims) {
+      if (formData[d] !== '' && formData[d] !== null) {
+        const v = parseFloat(formData[d]);
+        if (isNaN(v) || v <= 0) {
+          push(`La medida de ${d === 'length' ? 'largo' : d === 'width' ? 'ancho' : 'alto'} debe ser > 0 si se ingresa.`, { type: 'error' });
+          return;
+        }
+      }
+    }
     const orderNumber = 'EXP' + Math.random().toString(36).substr(2, 9).toUpperCase();
     // Obtener usuario actual para asociar pedido
     let currentUser = null;
@@ -243,14 +259,44 @@ function OrderForm({ onCreate }) {
         <div className="space-y-4">
           <h4 className={sectionTitle}><Package className="h-4 w-4" /> Detalles del Paquete</h4>
           <div className="grid md:grid-cols-4 gap-4">
-            {['weight','length','width','height'].map(field => (
-              <div className="space-y-1" key={field}>
-                <label className={labelClass}>
-                  {field === 'weight' ? 'Peso (kg) *' : field.charAt(0).toUpperCase()+field.slice(1)+' (cm)'}
-                </label>
-                <input type="number" className={inputClass} value={formData[field]} onChange={e=>setFormData({...formData,[field]:e.target.value})} />
-              </div>
-            ))}
+            {['weight','length','width','height'].map(field => {
+              const label = field === 'weight'
+                ? 'Peso (kg) *'
+                : field === 'length'
+                  ? 'Largo (cm)'
+                  : field === 'width'
+                    ? 'Ancho (cm)'
+                    : 'Alto (cm)';
+              const placeholder = field === 'weight' ? '0.00' : '0.00';
+              const min = 0.01;
+              return (
+                <div className="space-y-1" key={field}>
+                  <label className={labelClass}>{label}</label>
+                  <input
+                    type="number"
+                    className={inputClass}
+                    placeholder={placeholder}
+                    step="0.01"
+                    min={min}
+                    value={formData[field]}
+                    onChange={e=> {
+                      const val = e.target.value;
+                      // Evitar valores negativos inmediatamente
+                      if (val.startsWith('-')) return;
+                      setFormData({...formData,[field]:val});
+                    }}
+                    onBlur={e=> {
+                      const val = e.target.value;
+                      if (!val) return;
+                      const num = parseFloat(val);
+                      if (isNaN(num) || num <= 0) {
+                        push(`${label} debe ser mayor que 0.`, { type: 'warning' });
+                      }
+                    }}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -264,15 +310,37 @@ function OrderForm({ onCreate }) {
 
         <div className="space-y-2">
           <label className={labelClass}>Descripción del Contenido</label>
-          <textarea className={`${inputClass} h-24 resize-y`} value={formData.description} onChange={e=>setFormData({...formData, description: e.target.value})} />
+          <textarea
+            className={`${inputClass} h-24 resize-y`}
+            placeholder="Describe brevemente el contenido de tu paquete"
+            value={formData.description}
+            onChange={e=>setFormData({...formData, description: e.target.value})}
+          />
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 items-start">
-          <button type="button" onClick={calculateCost} disabled={!formData.weight || !formData.modalidad} className="inline-flex items-center gap-2 px-4 py-2 bg-white border rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50">
-            <Calculator className="h-4 w-4" /> Calcular Costo
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          <button
+            type="button"
+            onClick={calculateCost}
+            disabled={!formData.weight || !formData.modalidad}
+            className="group inline-flex items-center gap-3 px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-[#0D1B2A] to-[#14324c] text-white shadow-sm hover:shadow-lg hover:from-[#11263a] hover:to-[#173d58] transition disabled:opacity-50 disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#F77F00] focus:ring-offset-white"
+          >
+            <Calculator className="h-5 w-5 group-hover:scale-110 transition-transform" />
+            <span>Calcular Costo</span>
           </button>
           {estimatedCost !== null && (
-            <Badge className="bg-[#F77F00] border-[#F77F00] text-white text-sm">Costo Estimado: ${estimatedCost.toFixed(2)} USD</Badge>
+            <div className="relative overflow-hidden rounded-xl bg-white/90 backdrop-blur border border-[#F77F00]/40 shadow-sm flex items-center gap-5 px-6 py-5">
+              <div className="absolute inset-0 bg-gradient-to-r from-orange-50 via-transparent to-sky-50 pointer-events-none" />
+              <div className="relative">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#F77F00] mb-1">Costo Estimado</p>
+                <p className="text-2xl font-bold text-[#0D1B2A] tabular-nums">${estimatedCost.toFixed(2)} <span className="text-sm font-medium text-slate-500">USD</span></p>
+              </div>
+              <div className="hidden sm:block h-10 w-px bg-gradient-to-b from-transparent via-[#F77F00]/40 to-transparent" />
+              <div className="relative hidden sm:flex flex-col text-[11px] text-slate-600 leading-tight">
+                <span>Incluye base + modalidad</span>
+                <span className="text-slate-500">(Estimación previa)</span>
+              </div>
+            </div>
           )}
         </div>
 
@@ -436,47 +504,75 @@ function TrackingMap({ orders }) {
       </div>
       {info && (
         <div className="grid lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg p-6 shadow-sm border">
-            <h4 className="font-semibold text-[#0D1B2A] mb-4 flex items-center gap-2"><Truck className="h-5 w-5" /> Ubicación Actual</h4>
-            <div className="bg-gradient-to-br from-blue-50 to-green-50 rounded-lg p-6 border-2 border-dashed border-gray-300 min-h-[260px] flex flex-col items-center justify-center">
-              <div className="text-center space-y-4">
-                <div className="bg-[#F77F00] p-4 rounded-full w-16 h-16 mx-auto flex items-center justify-center animate-pulse">
-                  <Truck className="h-8 w-8 text-white" />
+          {/* Panel Ubicación y Progreso */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border relative overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_25%,rgba(247,127,0,0.12),transparent_70%),radial-gradient(circle_at_85%_80%,rgba(14,116,144,0.15),transparent_65%)] pointer-events-none" />
+            <div className="relative flex flex-col lg:flex-row items-center gap-8">
+              <div className="relative w-28 h-28">
+                <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(#F77F00 ${info.progress}%, #e5e7eb ${info.progress}%)` }} />
+                <div className="absolute inset-2 rounded-full bg-white flex flex-col items-center justify-center text-center">
+                  <span className="text-xl font-bold text-[#0D1B2A] tabular-nums">{info.progress}%</span>
+                  <span className="text-[10px] uppercase tracking-wide text-gray-500 leading-tight">Progreso</span>
                 </div>
-                <div>
-                  <h5 className="font-semibold text-[#0D1B2A] mb-2">{info.currentLocation}</h5>
-                  <Badge className="bg-blue-100 text-blue-800 border-blue-200">{info.status}</Badge>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow-sm w-full">
-                  <p className="text-sm text-gray-600 mb-2">Progreso del Envío</p>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div className="bg-[#F77F00] h-3 rounded-full" style={{ width: `${info.progress}%` }} />
+              </div>
+              <div className="flex-1 space-y-4 w-full">
+                <div className="flex items-start gap-3">
+                  <div className="bg-[#F77F00] rounded-xl p-3 shadow text-white">
+                    <Truck className="h-6 w-6" />
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">{info.progress}% completado</p>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-[#0D1B2A] text-lg leading-snug">Ubicación Actual</h4>
+                    <p className="text-sm text-gray-600 mt-1 leading-relaxed">{info.currentLocation}</p>
+                    <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 border border-blue-200">
+                      <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" /> {info.status}
+                    </div>
+                  </div>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="bg-white/70 backdrop-blur rounded-lg border border-slate-200 p-4 flex flex-col gap-1">
+                    <span className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">Número</span>
+                    <span className="font-mono text-sm font-semibold text-[#0D1B2A]">{info.orderNumber}</span>
+                  </div>
+                  <div className="bg-white/70 backdrop-blur rounded-lg border border-slate-200 p-4 flex flex-col gap-1">
+                    <span className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">Entrega Estimada</span>
+                    <span className="text-sm font-semibold text-[#0D1B2A]">{new Date(info.estimatedDelivery).toLocaleDateString('es-ES')}</span>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg text-sm text-blue-800 flex items-center gap-2"><Clock className="h-4 w-4" />Entrega estimada: {new Date(info.estimatedDelivery).toLocaleDateString('es-ES')}</div>
           </div>
-          <div className="bg-white rounded-lg p-6 shadow-sm border">
-            <h4 className="font-semibold text-[#0D1B2A] mb-1 flex items-center gap-2"><Package className="h-5 w-5" /> Historial de Movimientos</h4>
-            <p className="text-gray-600 text-sm mb-4">Seguimiento detallado del paquete {info.orderNumber}</p>
-            <div className="space-y-4">
-              {info.timeline.map((ev, i) => (
-                <div key={i} className="flex gap-4">
-                  <div className="flex flex-col items-center">
-                    <div className={`w-4 h-4 rounded-full border-2 ${ev.completed ? 'bg-[#F77F00] border-[#F77F00]' : 'bg-white border-gray-300'}`} />
-                    {i < info.timeline.length - 1 && <div className={`w-0.5 flex-1 ${ev.completed ? 'bg-[#F77F00]' : 'bg-gray-300'}`} />}
-                  </div>
-                  <div className="flex-1 pb-4">
-                    <div className="flex justify-between items-start mb-1">
-                      <h5 className={`font-medium ${ev.completed ? 'text-[#0D1B2A]' : 'text-gray-500'}`}>{ev.status}</h5>
-                      <span className="text-xs text-gray-500">{ev.date} {ev.time}</span>
+          {/* Timeline */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border relative overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_25%,rgba(14,116,144,0.12),transparent_70%)] pointer-events-none" />
+            <div className="relative">
+              <h4 className="font-semibold text-[#0D1B2A] mb-1 flex items-center gap-2"><Package className="h-5 w-5" /> Historial de Movimientos</h4>
+              <p className="text-gray-600 text-sm mb-6">Seguimiento detallado del paquete <span className="font-semibold">{info.orderNumber}</span></p>
+              <div className="space-y-4 relative">
+                {/* Línea base continua detrás de todos los pasos */}
+                <div className="absolute left-[9px] top-0 bottom-0 w-px bg-gradient-to-b from-gray-200 via-gray-300 to-gray-200 pointer-events-none" />
+                {info.timeline.map((ev, i) => {
+                  const isLast = i === info.timeline.length - 1;
+                  const state = ev.completed ? 'done' : (info.timeline.findIndex(t=>!t.completed) === i ? 'current' : 'pending');
+                  return (
+                    <div key={i} className="relative pl-10 pb-4 group">
+                      <div className="absolute left-0 top-1 flex flex-col items-center">
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] font-bold transition shadow-sm ${state==='done' ? 'bg-[#F77F00] border-[#F77F00] text-white' : state==='current' ? 'bg-white border-[#F77F00] text-[#F77F00] animate-pulse' : 'bg-white border-gray-300 text-gray-400'}`}>{state==='done'?'✓':state==='current'?'•':''}</div>
+                        {!isLast && <div className={`flex-1 w-[2px] mt-1 transition ${ev.completed ? 'bg-[#F77F00] shadow-inner' : 'bg-transparent'}`}></div>}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex flex-wrap justify-between gap-2">
+                          <h5 className={`font-medium text-sm ${state==='done' ? 'text-[#0D1B2A]' : state==='current' ? 'text-[#F77F00]' : 'text-gray-500'}`}>{ev.status}</h5>
+                          <span className="text-[11px] font-mono text-gray-500">{ev.date} {ev.time}</span>
+                        </div>
+                        <p className="text-xs text-gray-600 leading-relaxed">{ev.location}</p>
+                        {state==='current' && (
+                          <div className="mt-2 text-[11px] text-[#F77F00] font-semibold tracking-wide">En progreso...</div>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-600">{ev.location}</p>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>

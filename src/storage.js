@@ -1,5 +1,3 @@
-// Utilidades centralizadas para persistencia de pedidos y usuarios en localStorage
-// Evita duplicación de lógica entre Admin y Cliente
 
 const ORDERS_KEY = 'expressia_orders';
 const SEED_FLAG = 'expressia_orders_seeded';

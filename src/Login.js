@@ -47,22 +47,24 @@ export default function Login() {
     setTimeout(() => {
       if (registrando) {
         const usuarios = getUsuarios();
-        const existe = usuarios.find((u) => u.email === formData.email);
+        const existe = usuarios.find((u) => u.email === formData.email.trim().toLowerCase());
 
         if (existe) {
           push('Ese correo ya está asociado a una cuenta existente.', { type:'error', title:'Correo en uso' });
         } else {
-          guardarUsuario({
+          const nuevoUsuario = {
             id: Date.now().toString(),
             firstName: formData.firstName.trim(),
             lastName: formData.lastName.trim(),
             email: formData.email.trim().toLowerCase(),
             password: formData.password,
             createdAt: new Date().toISOString()
-          });
-          push('Tu cuenta fue creada correctamente. Inicia sesión para continuar.', { type:'success', title:'Registro exitoso' });
+          };
+          guardarUsuario(nuevoUsuario);
+          // Prefill login form with just-created credentials
+            push('Cuenta creada. Tus datos se han rellenado, solo confirma para iniciar sesión.', { type:'success', title:'Registro exitoso' });
           setRegistrando(false);
-          setFormData({ firstName: "", lastName: "", email: "", password: "" });
+          setFormData({ firstName: '', lastName: '', email: nuevoUsuario.email, password: nuevoUsuario.password });
         }
       } else {
         const usuarios = getUsuarios();
@@ -157,7 +159,7 @@ export default function Login() {
                     </div>
                   </div>
                   <div className="pt-2">
-                    <Button type="submit" className="w-full bg-[#0D1B2A] hover:bg-[#173249] text-white font-medium tracking-wide" disabled={isLoading}>
+                    <Button type="submit" className={`w-full ${registrando ? 'py-4 text-base' : 'py-3 text-sm'} bg-[#0D1B2A] hover:bg-[#173249] text-white font-semibold tracking-wide rounded-lg transition`} disabled={isLoading}>
                       {isLoading ? (
                         <div className="flex items-center gap-2">
                           <div className="w-4 h-4 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
