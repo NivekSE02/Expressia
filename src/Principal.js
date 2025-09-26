@@ -72,11 +72,9 @@ function CountUp({ value, duration=900 }) {
 export default function Home() {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ total:0, entregado:0, transito:0, pendiente:0 });
-  const [mounted, setMounted] = useState(false);
   // Eliminado currentUser: la única vía es iniciar sesión
 
   useEffect(() => {
-    setMounted(true);
     const orders = loadOrders();
     const total = orders.length;
     const entregado = orders.filter(o=>o.status==='entregado').length;
