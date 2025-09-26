@@ -1,8 +1,10 @@
 // Nueva implementación solicitada: Panel de Cliente con Tabs (Pedido, Historial, Seguimiento, Programar)
 import React, { useState, useEffect } from 'react';
+import { loadOrders, saveOrders, broadcastOrdersChange } from './storage';
 import { Package, History, MapPin, Calendar, Calculator, Truck, Clock, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import logo from './Img/expressia.png';
+import { useToast } from './toast';
 
 
 // NOTA: Se eliminan imports con alias (@/...) y componentes inexistentes.
@@ -77,23 +79,52 @@ function Badge({ children, className = '' }) {
 export default function ClientDashboard() {
   const [activeTab, setActiveTab] = useState('new-order');
   const [orders, setOrders] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
 
   // Cargar pedidos almacenados al montar
   useEffect(() => {
+    setOrders(loadOrders());
+    // Cargar usuario actual
     try {
-      const stored = localStorage.getItem('expressia_orders');
-      if (stored) setOrders(JSON.parse(stored));
+      const u = localStorage.getItem('usuarioActual');
+      if (u) setCurrentUser(JSON.parse(u));
     } catch {}
   }, []);
 
-  // Persistir pedidos cuando cambien
+  // Listen storage changes (admin edits)
   useEffect(() => {
-    localStorage.setItem('expressia_orders', JSON.stringify(orders));
+    const handler = (e) => {
+      if (e.key === 'expressia_orders' || e.key === 'storage_manual_refresh' || e.key === 'expressia_orders_rev') {
+        setOrders(loadOrders());
+      }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
+
+  // Persist and broadcast when local client creates
+  useEffect(() => {
+    if (orders && orders.length) {
+      saveOrders(orders);
+      broadcastOrdersChange();
+    }
   }, [orders]);
 
   const handleCreateOrder = (order) => {
     setOrders(prev => [order, ...prev]);
   };
+
+  // Filtrar pedidos que pertenecen al usuario actual (si existe uno)
+  const visibleOrders = React.useMemo(() => {
+    if (!currentUser) return orders; // si no hay usuario (modo legacy) se muestran todos
+    return orders.filter(o => {
+      if (!o.owner || (!o.owner.email && !o.owner.id)) return false; // pedidos sin dueño quedan ocultos
+      // Comparar por email o id si existe
+      if (o.owner.email && currentUser.email && o.owner.email === currentUser.email) return true;
+      if (o.owner.id && currentUser.id && o.owner.id === currentUser.id) return true;
+      return false;
+    });
+  }, [orders, currentUser]);
 
   return (
     <Layout title="Gestiona tus envios">
@@ -113,8 +144,8 @@ export default function ClientDashboard() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value={activeTab} current="new-order"><OrderForm onCreate={handleCreateOrder} /></TabsContent>
-        <TabsContent value={activeTab} current="history"><OrderHistory orders={orders} /></TabsContent>
-        <TabsContent value={activeTab} current="tracking"><TrackingMap orders={orders} /></TabsContent>
+  <TabsContent value={activeTab} current="history"><OrderHistory orders={visibleOrders} /></TabsContent>
+  <TabsContent value={activeTab} current="tracking"><TrackingMap orders={visibleOrders} /></TabsContent>
         <TabsContent value={activeTab} current="schedule"><SchedulePlaceholder /></TabsContent>
       </Tabs>
     </Layout>
@@ -146,10 +177,12 @@ function OrderForm({ onCreate }) {
     setEstimatedCost(Math.round(total * 100) / 100);
   };
 
+  const { push } = useToast();
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.origin || !formData.destination || !formData.weight || !formData.modalidad) {
-      alert('Por favor completa los campos obligatorios');
+      push('Completa los campos obligatorios marcados con *', { type: 'warning' });
       return;
     }
     const orderNumber = 'EXP' + Math.random().toString(36).substr(2, 9).toUpperCase();
@@ -174,7 +207,7 @@ function OrderForm({ onCreate }) {
       } : null
     };
     if (onCreate) onCreate(newOrder);
-    alert(`Pedido creado. Número: ${orderNumber}. Costo estimado: $${(estimatedCost || 0).toFixed(2)}`);
+    push(`Pedido ${orderNumber} creado ($${(estimatedCost || 0).toFixed(2)})`, { type: 'success' });
     setFormData({ origin: '', destination: '', weight: '', length: '', width: '', height: '', modalidad: '', description: '' });
     setEstimatedCost(null);
   };
@@ -317,25 +350,37 @@ function TrackingMap({ orders }) {
   const [loading, setLoading] = useState(false);
 
   const buildTimeline = (order) => {
-    const baseDate = new Date(order.date);
-    const addDays = d => { const nd = new Date(baseDate); nd.setDate(nd.getDate()+d); return nd.toISOString().split('T')[0]; };
-    const status = order.status;
-    const timeline = [
-      { status: 'Pedido Confirmado', location: order.origin, date: addDays(0), time: '09:00', completed: true },
-      { status: 'Preparando Envío', location: order.origin, date: addDays(0), time: '12:00', completed: status !== 'pendiente' },
-      { status: 'En Tránsito', location: `En ruta hacia ${order.destination}`, date: addDays(1), time: '08:00', completed: status === 'en-transito' || status === 'entregado' },
-      { status: 'En Distribución Local', location: order.destination, date: addDays(2), time: 'Estimado', completed: status === 'entregado' },
-      { status: 'Entregado', location: order.destination, date: addDays(2), time: 'Estimado', completed: status === 'entregado' }
-    ];
-    let progress = 15;
-    if (status === 'pendiente') progress = 25;
-    else if (status === 'en-transito') progress = 60;
-    else if (status === 'entregado') progress = 100;
+    // Usar timeline personalizada si existe (creada por administrador)
+    const timeline = order.tracking?.timeline && Array.isArray(order.tracking.timeline)
+      ? order.tracking.timeline
+      : (() => {
+          const baseDate = new Date(order.date);
+          const addDays = d => { const nd = new Date(baseDate); nd.setDate(nd.getDate()+d); return nd.toISOString().split('T')[0]; };
+          const status = order.status;
+          return [
+            { status: 'Pedido Confirmado', location: order.origin, date: addDays(0), time: '09:00', completed: true },
+            { status: 'Recogido por Transportista', location: order.origin, date: addDays(0), time: '14:15', completed: status !== 'pendiente' },
+            { status: 'En Tránsito', location: `En ruta hacia ${order.destination}`, date: addDays(1), time: '11:45', completed: status === 'en-transito' || status === 'entregado' },
+            { status: 'En Distribución Local', location: order.destination, date: addDays(2), time: 'Estimado', completed: status === 'entregado' },
+            { status: 'Entregado', location: order.destination, date: addDays(2), time: 'Estimado', completed: status === 'entregado' }
+          ];
+        })();
+    // Derivar status y progreso desde timeline si es posible
+    const delivered = timeline.find(s=>s.status==='Entregado')?.completed;
+    const inTransit = timeline.find(s=>s.status==='En Tránsito')?.completed;
+    const rawStatus = order.status === 'cancelado' ? 'cancelado' : delivered ? 'entregado' : inTransit ? 'en-transito' : 'pendiente';
+    const progress = rawStatus === 'entregado' ? 100 : rawStatus === 'en-transito' ? 60 : rawStatus === 'pendiente' ? 25 : 15;
+    const currentLocation = (() => {
+      const firstIncomplete = timeline.find(t=>!t.completed);
+      if (firstIncomplete) return firstIncomplete.location;
+      return timeline[timeline.length-1].location;
+    })();
+    const estimatedDelivery = timeline[timeline.length-1].date;
     return {
       orderNumber: order.orderNumber,
-      status: status === 'pendiente' ? 'Pendiente' : status === 'en-transito' ? 'En Tránsito' : status === 'entregado' ? 'Entregado' : status,
-      currentLocation: timeline.find(t => !t.completed)?.location || order.destination,
-      estimatedDelivery: timeline[4].date,
+      status: rawStatus === 'pendiente' ? 'Pendiente' : rawStatus === 'en-transito' ? 'En Tránsito' : rawStatus === 'entregado' ? 'Entregado' : rawStatus,
+      currentLocation,
+      estimatedDelivery,
       progress,
       timeline
     };
@@ -356,22 +401,23 @@ function TrackingMap({ orders }) {
     ]
   };
 
+  const { push } = useToast();
   const track = () => {
-    if (!trackingNumber.trim()) { alert('Ingresa un número de seguimiento'); return; }
+    if (!trackingNumber.trim()) { push('Ingresa un número de seguimiento', { type: 'warning' }); return; }
     setLoading(true);
     setTimeout(() => {
       const numberUp = trackingNumber.toUpperCase();
       if (numberUp === 'EXP2024002') {
         setInfo(demoMock);
-        alert('Paquete demo encontrado');
+  push('Usa este número para probar el flujo completo.', { type: 'info', title: 'Paquete demo encontrado' });
       } else {
         const order = orders.find(o => o.orderNumber === numberUp);
         if (order) {
           setInfo(buildTimeline(order));
-          alert('Pedido encontrado');
+          push(`Seguimiento disponible para ${order.orderNumber}`, { type: 'success', title: 'Pedido encontrado' });
         } else {
           setInfo(null);
-          alert('Número no encontrado');
+          push('Verifica el código e inténtalo nuevamente.', { type: 'error', title: 'Pedido no encontrado' });
         }
       }
       setLoading(false);

@@ -7,6 +7,7 @@ import Login from "./Login.js";
 import './App.css';
 import Inicio from './Entrada.js'
 import Admin from './Admin.js'
+import { ToastProvider } from './toast';
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -25,9 +26,11 @@ function AnimatedRoutes() {
 
 function App() {
   return (
-    <Router>
-      <AnimatedRoutes />
-    </Router>
+    <ToastProvider>
+      <Router>
+        <AnimatedRoutes />
+      </Router>
+    </ToastProvider>
   );
 }
 

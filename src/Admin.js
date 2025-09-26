@@ -1,12 +1,14 @@
-// Panel de Administración simplificado
+
 import React, { useState, useEffect } from 'react';
-import { Package, BarChart3, Settings, TrendingUp, Truck, DollarSign, Fuel, Search, Edit, Eye } from 'lucide-react';
+import { Package, BarChart3, Settings, TrendingUp, Truck, DollarSign, Fuel, Search, Edit, Eye, MapPin, X } from 'lucide-react';
+import { loadOrders, saveOrders, ensureSeedOrders, broadcastOrdersChange } from './storage';
+import { useToast } from './toast';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Input } from './components/ui/input';
 import { useNavigate } from 'react-router-dom';
 
-// Layout administrativo reutilizando estilo de Entrada pero independiente
+
 function AdminLayout({ title, subtitle, children }) {
 	const navigate = useNavigate();
 	return (
@@ -26,7 +28,6 @@ function AdminLayout({ title, subtitle, children }) {
 	);
 }
 
-// Tabs simples (reutilizamos patrón de Entrada.js para no depender de rutas alias)
 function Tabs({ children }) { return <div>{children}</div>; }
 function TabsList({ children, value, onValueChange }) {
 	return (
@@ -122,30 +123,74 @@ function OrdersTable({ Badge }) {
 	const [searchTerm, setSearchTerm] = useState('');
 	const [statusFilter, setStatusFilter] = useState('all');
 	const [orders, setOrders] = useState([]);
+	// Nuevos estados para gestión de tracking
+	const [trackingEditOrder, setTrackingEditOrder] = useState(null);
+	const [draftTimeline, setDraftTimeline] = useState([]); // timeline editable
+	const [savingTracking, setSavingTracking] = useState(false);
+	const [viewTrackingOrder, setViewTrackingOrder] = useState(null); // solo lectura
 
-	// Cargar pedidos creados por clientes (expressia_orders) más algunos mock iniciales si vacío
+	// Construye timeline inicial si el pedido no la tiene
+	const buildInitialTimeline = (order) => {
+		const baseDate = new Date(order.date);
+		const addDays = d => { const nd = new Date(baseDate); nd.setDate(nd.getDate()+d); return nd.toISOString().split('T')[0]; };
+		return [
+			{ status: 'Pedido Confirmado', location: order.origin, date: addDays(0), time: '09:00', completed: true },
+			{ status: 'Recogido por Transportista', location: order.origin, date: addDays(0), time: '14:15', completed: order.status !== 'pendiente' },
+			{ status: 'En Tránsito', location: `En ruta hacia ${order.destination}`, date: addDays(1), time: '11:45', completed: order.status === 'en-transito' || order.status === 'entregado' },
+			{ status: 'En Distribución Local', location: order.destination, date: addDays(2), time: 'Estimado', completed: order.status === 'entregado' },
+			{ status: 'Entregado', location: order.destination, date: addDays(2), time: 'Estimado', completed: order.status === 'entregado' }
+		];
+	};
+
+	const deriveStatusFromTimeline = (timeline, currentStatus) => {
+		if (currentStatus === 'cancelado') return 'cancelado';
+		const delivered = timeline.find(s=>s.status==='Entregado')?.completed;
+		if (delivered) return 'entregado';
+		const inTransit = timeline.find(s=>s.status==='En Tránsito')?.completed;
+		if (inTransit) return 'en-transito';
+		return 'pendiente';
+	};
+
+
 	useEffect(() => {
-		try {
-			const stored = localStorage.getItem('expressia_orders');
-			const parsed = stored ? JSON.parse(stored) : [];
-			setOrders(prev => {
-				if (parsed.length === 0 && prev.length === 0) {
-					return [
-						{ id:'1', orderNumber:'EXP2024001', owner:{ name:'María González', email:'maria@example.com'}, origin:'Guatemala', destination:'Costa Rica', status:'entregado', date:'2025-09-18', cost:45.50, weight:2.5 },
-						{ id:'2', orderNumber:'EXP2024002', owner:{ name:'Carlos Rodríguez', email:'carlos@example.com'}, origin:'El Salvador', destination:'Honduras', status:'en-transito', date:'2025-09-22', cost:32.00, weight:1.8 },
-						{ id:'3', orderNumber:'EXP2024003', owner:{ name:'Ana Martínez', email:'ana@example.com'}, origin:'Nicaragua', destination:'Panamá', status:'pendiente', date:'2025-09-23', cost:67.25, weight:4.2 }
-					];
-				}
-				return parsed.concat(prev.filter(m=>!parsed.find(p=>p.id===m.id))); // evita duplicar
-			});
-		} catch {}
+		// Sembrar si vacío (una sola vez) y cargar
+		const seeded = ensureSeedOrders(buildInitialTimeline);
+		// fusionar tracking faltante
+		const enhanced = (seeded.length ? seeded : loadOrders()).map(o => o.tracking?.timeline ? o : { ...o, tracking:{ timeline: buildInitialTimeline(o) } });
+		setOrders(enhanced);
 	}, []);
 
-	// Persistir cualquier cambio (para estados) en expressia_orders
+	// Suscribirse a cambios externos (otra pestaña / cliente creando pedidos)
+	useEffect(() => {
+		const unsub = window.addEventListener ? ( () => {
+			const handler = () => setOrders(prev => {
+				const latest = loadOrders();
+				// mantener modificaciones locales si no están en latest? asumimos latest fuente de verdad
+				return latest.map(o => o.tracking?.timeline ? o : { ...o, tracking:{ timeline: buildInitialTimeline(o) } });
+			});
+			window.addEventListener('storage', handler);
+			return () => window.removeEventListener('storage', handler);
+		})() : undefined;
+		return unsub;
+	}, []);
+
+	// Helper para persistir inmediatamente y emitir broadcast
+	const persistOrders = (updater) => {
+		setOrders(prev => {
+			const updated = typeof updater === 'function' ? updater(prev) : updater;
+			saveOrders(updated);
+			broadcastOrdersChange();
+			return updated;
+		});
+	};
+
+	const { push } = useToast();
+
+	
 	useEffect(() => {
 		if (orders && orders.length) {
-			const clientPart = orders.filter(o => o.id && o.orderNumber);
-			localStorage.setItem('expressia_orders', JSON.stringify(clientPart));
+			saveOrders(orders);
+			broadcastOrdersChange();
 		}
 	}, [orders]);
 	const statusOptions = [
@@ -161,10 +206,263 @@ function OrdersTable({ Badge }) {
 		const matchStatus = statusFilter === 'all' || o.status === statusFilter;
 		return matchSearch && matchStatus;
 	});
-	const updateStatus = (id, newStatus) => setOrders(o=> o.map(ord => ord.id===id? {...ord, status:newStatus}: ord));
+	const updateStatus = (id, newStatus) => {
+		persistOrders(o=> o.map(ord => ord.id===id? {
+			...ord,
+			status:newStatus,
+			history:[...(ord.history||[]), { type:'status', at:new Date().toISOString(), value:newStatus }]
+		} : ord));
+		push(`Estado actualizado a ${newStatus}`, { type: 'info' });
+	};
+
+	const openTrackingEditor = (order) => {
+		if (order.status === 'entregado') { push('No se puede editar tracking de un pedido entregado', { type:'warning' }); return; }
+		let withTracking = order;
+		if (!withTracking.tracking || !withTracking.tracking.timeline) {
+			withTracking = { ...order, tracking: { timeline: buildInitialTimeline(order) } };
+			setOrders(prev => prev.map(o => o.id===order.id ? withTracking : o));
+		}
+		setDraftTimeline(withTracking.tracking.timeline.map(ev => ({ ...ev })));
+		setTrackingEditOrder(withTracking);
+	};
+
+	const closeTrackingEditor = () => { setTrackingEditOrder(null); setDraftTimeline([]); };
+
+	const updateDraftEvent = (index, field, value) => {
+		setDraftTimeline(tl => tl.map((ev,i) => i===index ? { ...ev, [field]: value } : ev));
+	};
+
+	const toggleCompleted = (index, value) => {
+		setDraftTimeline(tl => tl.map((ev,i) => {
+			if (i===index) {
+				return { ...ev, completed: value };
+			} else if (i>index && value===false) {
+				return { ...ev, completed:false };
+			}
+			return ev;
+		}));
+	};
+
+	// Validar orden cronológico (no permitir fecha anterior a la previa cuando ambas estén completadas o editar en general)
+	const validateTimelineChronology = (timeline) => {
+		let lastDate = null;
+		let lastDateTime = null; // ISO string for combined date+time comparisons
+		for (let i=0;i<timeline.length;i++) {
+			const d = timeline[i].date;
+			const time = timeline[i].time;
+			if (d && /\d{4}-\d{2}-\d{2}/.test(d)) {
+				if (lastDate && d < lastDate) {
+					return { ok:false, index:i, message:`La fecha del paso ${i+1} es anterior a un paso previo` };
+				}
+				lastDate = d;
+				// Si hay hora, validar cronológicamente también
+				if (time && /\d{2}:\d{2}/.test(time)) {
+					const currentDT = `${d}T${time.length===5 ? time+':00' : time}`;
+					if (lastDateTime && currentDT < lastDateTime) {
+						return { ok:false, index:i, message:`La hora del paso ${i+1} es anterior a un paso previo` };
+					}
+					lastDateTime = currentDT;
+				}
+			}
+		}
+		return { ok:true };
+	};
+
+	const saveTracking = () => {
+		setSavingTracking(true);
+		persistOrders(prev => prev.map(o => {
+			if (o.id === trackingEditOrder.id) {
+				const validation = validateTimelineChronology(draftTimeline);
+				if (!validation.ok) {
+					setSavingTracking(false);
+					push(validation.message, { type:'error' });
+					throw new Error('abort-save');
+				}
+				const newStatus = deriveStatusFromTimeline(draftTimeline, o.status);
+				return { ...o, status: newStatus, tracking: { timeline: draftTimeline }, history:[...(o.history||[]), { type:'tracking', at:new Date().toISOString(), status:newStatus, snapshot: draftTimeline }] };
+			}
+			return o;
+		}));
+		setSavingTracking(false);
+		closeTrackingEditor();
+		push('Tracking actualizado y guardado', { type:'success' });
+	};
 	return (
 		<Card>
-			<CardHeader><CardTitle className="flex items-center gap-2 text-[#0D1B2A]"><Package className="h-5 w-5" />Gestión de Pedidos</CardTitle><CardDescription>Administra pedidos y estados</CardDescription></CardHeader>
+			<CardHeader>
+				<div className="flex items-start justify-between gap-4 flex-wrap">
+					<div>
+						<CardTitle className="flex items-center gap-2 text-[#0D1B2A]"><Package className="h-5 w-5" />Gestión de Pedidos</CardTitle>
+						<CardDescription>Administra pedidos, tracking y exporta historial</CardDescription>
+					</div>
+					<div className="flex gap-2">
+						<button onClick={() => {
+							// Export TXT (legible)
+							const lines = [];
+							lines.push('HISTORIAL DE PEDIDOS');
+							lines.push('Generado: '+ new Date().toLocaleString());
+							lines.push('');
+							orders.forEach(o => {
+								lines.push(`Pedido: ${o.orderNumber}  Estado: ${o.status}`);
+								(o.history||[]).forEach(h => {
+									const val = h.value || h.status || '';
+									lines.push(`  - [${h.type}] ${h.at} ${val ? '=> '+val : ''}`);
+								});
+								lines.push('');
+							});
+							const blob = new Blob([lines.join('\n')], { type:'text/plain' });
+							const url = URL.createObjectURL(blob);
+							const a = document.createElement('a'); a.href = url; a.download = 'historial_pedidos.txt'; a.click(); URL.revokeObjectURL(url);
+							push('Exportado historial TXT', { type:'success' });
+						}} className="px-3 py-2 text-xs rounded-md bg-gray-100 hover:bg-gray-200 border">TXT</button>
+						<button onClick={async () => {
+							// Export PDF (jsPDF) con tabla estética
+							try {
+								const { jsPDF } = await import('jspdf');
+								const doc = new jsPDF({ orientation:'p', unit:'pt', format:'a4' });
+								const marginX = 40;
+								let y = 50;
+								doc.setFontSize(18); doc.setTextColor(30,30,30); doc.text('Historial de Pedidos', marginX, y); y += 18;
+								doc.setFontSize(10); doc.setTextColor(80,80,80); doc.text(`Generado: ${new Date().toLocaleString()}`, marginX, y); y += 20;
+								// Resumen
+								const total = orders.length;
+								const delivered = orders.filter(o=>o.status==='entregado').length;
+								const inTransit = orders.filter(o=>o.status==='en-transito').length;
+								const pending = orders.filter(o=>o.status==='pendiente').length;
+								const canceled = orders.filter(o=>o.status==='cancelado').length;
+								doc.setFontSize(9); doc.setTextColor(50,50,50);
+								doc.text(`Resumen: Total ${total} | Entregados ${delivered} | En Tránsito ${inTransit} | Pendientes ${pending} | Cancelados ${canceled}`, marginX, y); y+=16;
+								// SECCION 1: Tabla de Pedidos
+								doc.setFontSize(11); doc.setTextColor(30,30,30); doc.setFont(undefined,'bold');
+								doc.text('Listado de Pedidos', marginX, y); y+=10; doc.setFont(undefined,'normal');
+								const orderHeaders = ['Pedido','Fecha','Origen','Destino','Modalidad','Peso','Costo','Estado','Propietario'];
+								const orderCols = [70,55,70,70,70,45,55,60,90]; // suma ~585
+								let ox = marginX; const orderHeaderH = 18;
+								doc.setFillColor(0,63,99); doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont(undefined,'bold');
+								orderHeaders.forEach((h,i)=>{ doc.rect(ox, y, orderCols[i], orderHeaderH, 'F'); doc.text(h, ox+4, y+12); ox+=orderCols[i]; });
+								y+=orderHeaderH; doc.setFont(undefined,'normal');
+								let orderAlt = false; doc.setTextColor(30,30,30);
+								orders.forEach(o => {
+									if (y > 780) { // nueva página y reimprimir encabezado
+										doc.addPage(); y=50; doc.setFontSize(8); doc.setFillColor(0,63,99); doc.setTextColor(255,255,255); ox=marginX; orderHeaders.forEach((h,i)=>{ doc.rect(ox, y, orderCols[i], orderHeaderH, 'F'); doc.text(h, ox+4, y+12); ox+=orderCols[i];}); y+=orderHeaderH; doc.setTextColor(30,30,30); }
+									if (orderAlt) { doc.setFillColor(245,245,245); doc.rect(marginX, y, orderCols.reduce((a,b)=>a+b,0), 14, 'F'); }
+									doc.setFontSize(7);
+									const vals = [
+										o.orderNumber,
+										o.date || '-',
+										o.origin || '-',
+										o.destination || '-',
+										o.modalidad || '-',
+										(o.weight!=null? o.weight+'kg':'-'),
+										(o.cost!=null? '$'+(Number(o.cost).toFixed(2)):'-'),
+										o.status || '-',
+										o.owner?.name || '-'
+									];
+									let cx = marginX;
+									vals.forEach((v,i)=>{ const w = orderCols[i]; const lines = doc.splitTextToSize(String(v), w-6); doc.text(lines, cx+3, y+10); cx+=w; });
+									y+=14; orderAlt = !orderAlt;
+								});
+								y+=10;
+								// SECCION 2: Eventos (historial) si existen
+								const flatEvents = [];
+								orders.forEach(o => (o.history||[]).forEach(h => flatEvents.push({
+									order:o.orderNumber,
+									status:o.status,
+									type:h.type,
+									when:h.at,
+									value: h.value || h.status || ''
+								})));
+								if (flatEvents.length>0) {
+									if (y > 720) { doc.addPage(); y=50; }
+									doc.setFontSize(11); doc.setFont(undefined,'bold'); doc.setTextColor(30,30,30); doc.text('Eventos / Auditoría', marginX, y); y+=10; doc.setFont(undefined,'normal');
+									const headers = ['Pedido','Estado','Tipo','Fecha/Hora','Valor'];
+									const colWidths = [80,65,80,160,140];
+									let x = marginX; const headerHeight = 18;
+									doc.setFillColor(247,127,0); doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont(undefined,'bold');
+									headers.forEach((h,i)=>{ doc.rect(x, y, colWidths[i], headerHeight, 'F'); doc.text(h, x+4, y+12); x+=colWidths[i]; }); y+=headerHeight; doc.setFont(undefined,'normal'); doc.setTextColor(30,30,30);
+									let rowAlt = false;
+									flatEvents.forEach(ev => {
+										if (y > 780) { doc.addPage(); y=50; x=marginX; doc.setFillColor(247,127,0); doc.setTextColor(255,255,255); headers.forEach((h,i)=>{ doc.rect(x, y, colWidths[i], headerHeight, 'F'); doc.text(h, x+4, y+12); x+=colWidths[i]; }); y+=headerHeight; doc.setTextColor(30,30,30); }
+										if (rowAlt) { doc.setFillColor(245,245,245); doc.rect(marginX, y, colWidths.reduce((a,b)=>a+b,0), 14, 'F'); }
+										doc.setFontSize(7); let cx = marginX;
+										const cells = [ev.order, ev.status, ev.type, ev.when, ev.value];
+										cells.forEach((c,i)=>{ const w = colWidths[i]; const lines = doc.splitTextToSize(String(c), w-6); doc.text(lines, cx+3, y+10); cx+=w; });
+										y+=14; rowAlt = !rowAlt;
+									});
+								} else {
+									if (y > 760) { doc.addPage(); y=50; }
+									doc.setFontSize(9); doc.setTextColor(120,120,120); doc.text('No hay eventos / auditoría registrados.', marginX, y);
+								}
+								doc.save('historial_pedidos.pdf');
+								push('Exportado PDF', { type:'success' });
+							} catch(e) {
+								console.error(e);
+								push('Error exportando PDF. Instala dependencias.', { type:'error' });
+							}
+						}} className="px-3 py-2 text-xs rounded-md bg-gray-100 hover:bg-gray-200 border">PDF</button>
+						<button onClick={async () => {
+							// Export Excel (xlsx) con hoja resumen y ajustes de ancho
+							try {
+								const XLSX = await import('xlsx');
+								// Hoja de pedidos (características principales)
+								const pedidosHeader = ['Pedido','Fecha','Origen','Destino','Modalidad','Peso(kg)','Costo','$ Estado','Propietario','Descripción'];
+								const pedidosData = orders.map(o => [
+									o.orderNumber,
+									o.date || '-',
+									o.origin || '-',
+									o.destination || '-',
+									o.modalidad || '-',
+									o.weight != null ? o.weight : '-',
+									o.cost != null ? Number(o.cost).toFixed(2) : '-',
+									o.status || '-',
+									o.owner?.name || '-',
+									o.description ? (o.description.length>40? o.description.slice(0,37)+'...' : o.description) : '-'
+								]);
+								const wsPedidos = XLSX.utils.aoa_to_sheet([['Listado de Pedidos'], pedidosHeader, ...pedidosData]);
+								wsPedidos['!merges'] = [{ s:{ r:0,c:0 }, e:{ r:0,c:pedidosHeader.length-1 } }];
+								wsPedidos['!cols'] = pedidosHeader.map((h,i)=>({ wch: Math.min(45, Math.max(12, (h.length+2), ...pedidosData.map(r => String(r[i]||'').length+2))) }));
+								// Hoja de eventos / historial (auditoría)
+								const eventosHeader = ['Pedido','Estado','Tipo','Fecha/Hora','Valor'];
+								const eventosData = [];
+								orders.forEach(o => (o.history||[]).forEach(h => eventosData.push([
+									o.orderNumber,
+									o.status,
+									h.type,
+									h.at,
+									h.value || h.status || ''
+								])));
+								const wsEventos = XLSX.utils.aoa_to_sheet([['Eventos / Auditoría'], eventosHeader, ...eventosData]);
+								wsEventos['!merges'] = [{ s:{ r:0,c:0 }, e:{ r:0,c:eventosHeader.length-1 } }];
+								wsEventos['!cols'] = eventosHeader.map((h,i)=>({ wch: Math.min(60, Math.max(12, (h.length+2), ...eventosData.map(r => String(r[i]||'').length+2))) }));
+								// Hoja resumen
+								const summary = [
+									['Resumen'],
+									['Generado', new Date().toLocaleString()],
+									['Total pedidos', orders.length],
+									['Entregados', orders.filter(o=>o.status==='entregado').length],
+									['En Tránsito', orders.filter(o=>o.status==='en-transito').length],
+									['Pendientes', orders.filter(o=>o.status==='pendiente').length],
+									['Cancelados', orders.filter(o=>o.status==='cancelado').length]
+								];
+								const wsSummary = XLSX.utils.aoa_to_sheet(summary);
+								wsSummary['!cols'] = [{ wch:20 }, { wch:30 }];
+								const wb = XLSX.utils.book_new();
+								XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen');
+								XLSX.utils.book_append_sheet(wb, wsPedidos, 'Pedidos');
+								XLSX.utils.book_append_sheet(wb, wsEventos, 'Eventos');
+								const wbout = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+								const blob = new Blob([wbout], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+								const url = URL.createObjectURL(blob);
+								const a = document.createElement('a'); a.href = url; a.download = 'historial_pedidos.xlsx'; a.click(); URL.revokeObjectURL(url);
+								push('Exportado Excel', { type:'success' });
+							} catch(e) {
+								console.error(e);
+								push('Error exportando Excel. Instala dependencias.', { type:'error' });
+							}
+						}} className="px-3 py-2 text-xs rounded-md bg-gray-100 hover:bg-gray-200 border">Excel</button>
+					</div>
+				</div>
+			</CardHeader>
 			<CardContent>
 				<div className="flex flex-col sm:flex-row gap-4 mb-6">
 					<div className="flex-1 relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="Buscar pedido o cliente" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="pl-10" /></div>
@@ -192,7 +490,8 @@ function OrdersTable({ Badge }) {
 									</select>
 								</div>
 								<div className="flex gap-2">
-									<Button variant="outline" size="sm"><Eye className="h-3 w-3" /></Button>
+									<Button variant="outline" size="sm" onClick={()=>openTrackingEditor(order)} title="Editar Tracking"><MapPin className="h-3 w-3" /></Button>
+									<Button variant="outline" size="sm" onClick={()=> setViewTrackingOrder(order)} title="Ver Tracking"><Eye className="h-3 w-3" /></Button>
 									<Button variant="outline" size="sm"><Edit className="h-3 w-3" /></Button>
 								</div>
 							</div>
@@ -210,6 +509,90 @@ function OrdersTable({ Badge }) {
 						<div className="bg-red-50 p-3 rounded-lg"><p className="text-2xl font-bold text-red-600">{orders.filter(o=>o.status==='cancelado').length}</p><p className="text-sm text-red-700">Cancelados</p></div>
 					</div>
 				</div>
+			{viewTrackingOrder && !trackingEditOrder && (
+				<div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+					<div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+						<div className="px-6 py-4 border-b flex items-center justify-between">
+							<h4 className="font-semibold text-[#0D1B2A] flex items-center gap-2"><MapPin className="h-4 w-4" />Tracking: {viewTrackingOrder.orderNumber}</h4>
+							<button onClick={()=> setViewTrackingOrder(null)} className="p-2 rounded hover:bg-gray-100"><X className="h-4 w-4" /></button>
+						</div>
+						<div className="flex-1 overflow-y-auto p-6 space-y-6">
+							<div className="space-y-4">
+								{(viewTrackingOrder.tracking?.timeline || []).map((ev, i) => (
+									<div key={i} className="border rounded-lg p-4 flex gap-4">
+										<div className="flex flex-col items-center">
+											<div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${ev.completed ? 'bg-[#F77F00] text-white border-[#F77F00]' : 'bg-white text-gray-400 border-gray-300'}`}>{i+1}</div>
+											{i < (viewTrackingOrder.tracking?.timeline.length||0)-1 && <div className={`w-0.5 flex-1 ${ev.completed ? 'bg-[#F77F00]' : 'bg-gray-300'}`} />}
+										</div>
+										<div className="flex-1">
+											<h5 className="font-medium text-[#0D1B2A] mb-1">{ev.status}</h5>
+											<p className="text-xs text-gray-500 mb-1">{ev.date} {ev.time}</p>
+											<p className="text-sm text-gray-600">{ev.location}</p>
+										</div>
+									</div>
+								))}
+							</div>
+						</div>
+						<div className="px-6 py-4 border-t bg-gray-50 text-right">
+							<button onClick={()=> setViewTrackingOrder(null)} className="px-4 py-2 rounded-md text-sm bg-white border hover:bg-gray-100">Cerrar</button>
+						</div>
+					</div>
+				</div>
+			)}
+			{trackingEditOrder && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+					<div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+						<div className="px-6 py-4 border-b flex items-center justify-between">
+							<h4 className="font-semibold text-[#0D1B2A] flex items-center gap-2"><MapPin className="h-4 w-4" />Editar Tracking: {trackingEditOrder.orderNumber}</h4>
+							<button onClick={closeTrackingEditor} className="p-2 rounded hover:bg-gray-100"><X className="h-4 w-4" /></button>
+						</div>
+						<div className="flex-1 overflow-y-auto p-6 space-y-6">
+							<p className="text-sm text-gray-600">Modifica la línea de tiempo. Respeta el orden cronológico. Pasos completados se usarán para derivar el estado.</p>
+							<div className="space-y-4">
+								{draftTimeline.map((ev, idx) => {
+									const prevCompleted = idx === 0 || draftTimeline[idx-1].completed;
+									return (
+										<div key={idx} className="border rounded-lg p-4">
+											<div className="flex items-start gap-4">
+												<div className="flex flex-col items-center">
+													<div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${ev.completed ? 'bg-[#F77F00] text-white border-[#F77F00]' : 'bg-white text-gray-400 border-gray-300'}`}>{idx+1}</div>
+													{idx < draftTimeline.length -1 && <div className={`w-0.5 flex-1 ${ev.completed ? 'bg-[#F77F00]' : 'bg-gray-300'}`} />}
+												</div>
+												<div className="flex-1 space-y-3">
+													<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+														<h5 className="font-medium text-[#0D1B2A]">{ev.status}</h5>
+														<label className="inline-flex items-center gap-2 text-xs text-gray-600">
+															<input type="checkbox" className="rounded" checked={ev.completed} disabled={!prevCompleted && !ev.completed} onChange={e=>toggleCompleted(idx, e.target.checked)} /> Completado
+														</label>
+													</div>
+													<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+														<div className="space-y-1">
+															<label className="text-xs font-medium text-gray-600">Ubicación</label>
+															<input type="text" value={ev.location} onChange={e=>updateDraftEvent(idx,'location', e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm" />
+														</div>
+														<div className="space-y-1">
+															<label className="text-xs font-medium text-gray-600">Fecha</label>
+															<input type="date" value={ev.date} onChange={e=>updateDraftEvent(idx,'date', e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm" />
+														</div>
+														<div className="space-y-1">
+															<label className="text-xs font-medium text-gray-600">Hora / Nota</label>
+															<input type="text" value={ev.time} onChange={e=>updateDraftEvent(idx,'time', e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm" placeholder="HH:MM o Estimado" />
+														</div>
+													</div>
+											</div>
+											</div>
+										</div>
+									);
+								})}
+							</div>
+						</div>
+						<div className="px-6 py-4 border-t flex items-center justify-between bg-gray-50">
+							<button onClick={closeTrackingEditor} className="px-4 py-2 rounded-md text-sm bg-white border hover:bg-gray-100">Cancelar</button>
+							<button onClick={saveTracking} disabled={savingTracking} className="px-4 py-2 rounded-md text-sm bg-[#F77F00] text-white hover:bg-[#e6720a] disabled:opacity-50">{savingTracking? 'Guardando...' : 'Guardar Cambios'}</button>
+						</div>
+					</div>
+				</div>
+			)}
 			</CardContent>
 		</Card>
 	);

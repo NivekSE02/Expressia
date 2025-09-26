@@ -47,15 +47,15 @@ export default function Header() {
 
 const styles = {
   header: {
-  width: "100%", // <--- esto fuerza que ocupe todo el ancho
-  background: "#0f172a",
-  color: "#fff",
-  padding: "16px 32px",
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  boxSizing: "border-box",
-},
+    width: "100%",
+    background: "#0D1B2A", // Azul marino sólido (sin degradado)
+    color: "#fff",
+    padding: "16px 32px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    boxSizing: "border-box",
+  },
 
   logo: { display: "flex", alignItems: "center", gap: 8 },
   logoImage: {
@@ -65,7 +65,7 @@ const styles = {
     cursor: "pointer",
   },
   loginBtn: {
-    background: "#f97316", // naranja nuevo
+    background: "#f97316", 
     border: "none",
     padding: "10px 20px",
     borderRadius: 9999,
